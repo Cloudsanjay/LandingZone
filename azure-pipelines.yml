@@ -1,0 +1,87 @@
+trigger:
+ branches:
+   include:
+     - main
+     - feature/dev
+
+
+pool: SAgent
+
+stages:
+  - stage: SecurityChecks
+    displayName: "Security Checks - TFLint & TFSec"
+    jobs:
+      - job: TerraformSecurityScan
+        displayName: "Run TFLint and TFSec"
+        steps:
+        - task: TerraformInstaller@1
+          inputs:
+            terraformVersion: 'latest'
+        
+  - stage: TerraformPlan
+    displayName: Terraform Plan tak ka process
+    jobs:
+      - job:
+        displayName: Infra Provision
+        steps:
+        - task: TerraformInstaller@1
+          displayName: Install Terraform
+          inputs:
+            terraformVersion: 'latest'
+        - task: TerraformTask@5
+          displayName: Terraform Init
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
+            backendServiceArm: 's_connection'
+            backendAzureRmStorageAccountName: 'sanaytoy'
+            backendAzureRmContainerName: 'anjaycontainer'
+            backendAzureRmKey: 'dev_terraform.tfstate'
+        - task: TerraformTask@5
+          displayName: Terraform Validate
+          inputs:
+            provider: 'azurerm'
+            command: 'validate'
+        - task: TerraformTask@5
+          displayName: Terraform Plan
+          inputs:
+            provider: 'azurerm'
+            command: 'plan'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
+            environmentServiceNameAzureRM: 's_connection'
+  - stage: ManualApproval
+    displayName: Manual Approval jaruri h
+    jobs:
+      - job: ManualValidation
+        displayName: approval gate
+        pool: server
+        steps:
+        - task: ManualValidation@1
+          inputs:
+            notifyUsers: 'cloud.sanjaysingh@gmail.com'
+            approvers: 'Sanjay'
+  - stage: TerraformApply
+    dependsOn: ManualApproval
+    displayName: Terraform Apply chalana
+    jobs:
+      - job: 
+        steps:
+        - task: TerraformTask@5
+          displayName: Terraform Init
+          inputs:
+            provider: 'azurerm'
+            command: 'init'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
+            backendServiceArm: 's_connection'
+            backendAzureRmStorageAccountName: 'sanaytoy'
+            backendAzureRmContainerName: 'sanjaycontainer'
+            backendAzureRmKey: 'dev_terraform.tfstate'
+        - task: TerraformTask@5
+          inputs:
+            provider: 'azurerm'
+            command: 'apply'
+            workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
+            environmentServiceNameAzureRM: 's_connection'
+
+      
