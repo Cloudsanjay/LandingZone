@@ -23,7 +23,7 @@ stages:
       displayName: Run TFLint
 
     - script: |
-        tfsec $(System.DefaultWorkingDirectory)/Enviornment/Dev --minimum-severity HIGH --no-color
+        tfsec "$(System.DefaultWorkingDirectory)/Enviornment/Dev" --minimum-severity HIGH --no-color
       displayName: Run TFSec
 
 # ---------------- PLAN ----------------
