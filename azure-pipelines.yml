@@ -4,14 +4,68 @@ trigger:
       - main
       - feature/dev
 
-pool: SAgent
+pool:
+  name: SAgent
 
+variables:
+  TF_WORKING_DIR: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
+
+# =====================================================
+# STAGE 1: SECURITY CHECKS
+# =====================================================
 stages:
 - stage: SecurityChecks
-  displayName: "Security Checks - TFLint & TFSec"
+  displayName: "Security Checks (TFLint + tfsec)"
   jobs:
-  - job: TerraformSecurityScan
-    displayName: "Run TFLint and TFSec"
+  - job: TerraformSecurity
+    displayName: "Terraform Security Scan"
+    steps:
+    - checkout: self
+
+    # ---------- Install Terraform ----------
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
+
+    # ---------- Install TFLint ----------
+    - script: |
+        echo Installing TFLint
+        curl -L https://github.com/terraform-linters/tflint/releases/download/v0.50.3/tflint_windows_amd64.zip -o tflint.zip
+        tar -xf tflint.zip
+        mkdir C:\tools\tflint
+        move tflint.exe C:\tools\tflint\tflint.exe
+        setx PATH "%PATH%;C:\tools\tflint"
+      displayName: Install TFLint
+
+    - script: |
+        cd $(TF_WORKING_DIR)
+        tflint --init
+        tflint
+      displayName: Run TFLint
+
+    # ---------- Install tfsec ----------
+    - script: |
+        echo Installing tfsec
+        curl -L https://github.com/aquasecurity/tfsec/releases/download/v1.28.1/tfsec-windows-amd64.exe -o tfsec.exe
+        mkdir C:\tools\tfsec
+        move tfsec.exe C:\tools\tfsec\tfsec.exe
+        setx PATH "%PATH%;C:\tools\tfsec"
+      displayName: Install tfsec
+
+    - script: |
+        cd $(TF_WORKING_DIR)
+        tfsec .
+      displayName: Run tfsec
+
+# =====================================================
+# STAGE 2: TERRAFORM PLAN
+# =====================================================
+- stage: TerraformPlan
+  displayName: "Terraform Init, Validate & Plan"
+  dependsOn: SecurityChecks
+  jobs:
+  - job: TerraformPlanJob
+    displayName: "Terraform Plan"
     steps:
     - checkout: self
 
@@ -19,93 +73,80 @@ stages:
       inputs:
         terraformVersion: 'latest'
 
-    - script: |
-        echo "Checking TFLint version"
-        tflint --version
-
-        echo "Running TFLint scan"
-        cd $(System.DefaultWorkingDirectory)/Enviornment/Dev
-        tflint --init
-        tflint
-      displayName: "Run TFLint"
-
-    - task: tfsec@1
-      displayName: Run TFSec
-      inputs:
-        version: 'v1.26.0'
-        dir: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
-
-- stage: TerraformPlan
-  dependsOn: SecurityChecks
-  displayName: Terraform Plan tak ka process
-  jobs:
-  - job: InfraProvision
-    steps:
-    - task: TerraformInstaller@1
-      inputs:
-        terraformVersion: 'latest'
-
     - task: TerraformTask@5
       displayName: Terraform Init
       inputs:
-        provider: 'azurerm'
-        command: 'init'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
-        backendServiceArm: 's_connection'
-        backendAzureRmStorageAccountName: 'sanaytoy'
-        backendAzureRmContainerName: 'anjaycontainer'
-        backendAzureRmKey: 'dev_terraform.tfstate'
+        provider: azurerm
+        command: init
+        workingDirectory: $(TF_WORKING_DIR)
+        backendServiceArm: s_connection
+        backendAzureRmStorageAccountName: sanaytoy
+        backendAzureRmContainerName: sanjaycontainer
+        backendAzureRmKey: dev_terraform.tfstate
 
     - task: TerraformTask@5
       displayName: Terraform Validate
       inputs:
-        provider: 'azurerm'
-        command: 'validate'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
+        provider: azurerm
+        command: validate
+        workingDirectory: $(TF_WORKING_DIR)
 
     - task: TerraformTask@5
       displayName: Terraform Plan
       inputs:
-        provider: 'azurerm'
-        command: 'plan'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
-        environmentServiceNameAzureRM: 's_connection'
+        provider: azurerm
+        command: plan
+        workingDirectory: $(TF_WORKING_DIR)
+        environmentServiceNameAzureRM: s_connection
 
+# =====================================================
+# STAGE 3: MANUAL APPROVAL
+# =====================================================
 - stage: ManualApproval
+  displayName: "Manual Approval"
   dependsOn: TerraformPlan
-  displayName: Manual Approval jaruri h
   jobs:
-  - job: ManualValidation
+  - job: ApprovalGate
+    displayName: "Approval Required"
     pool: server
     steps:
     - task: ManualValidation@1
       inputs:
         notifyUsers: 'cloud.sanjaysingh@gmail.com'
-        approvers: 'Sanjay'
+        instructions: 'Please review Terraform plan and approve to apply'
+        timeoutInMinutes: 1440
 
+# =====================================================
+# STAGE 4: TERRAFORM APPLY
+# =====================================================
 - stage: TerraformApply
+  displayName: "Terraform Apply"
   dependsOn: ManualApproval
-  displayName: Terraform Apply chalana
   jobs:
-  - job: ApplyInfra
+  - job: TerraformApplyJob
+    displayName: "Apply Infrastructure"
     steps:
     - checkout: self
+
+    - task: TerraformInstaller@1
+      inputs:
+        terraformVersion: 'latest'
 
     - task: TerraformTask@5
       displayName: Terraform Init
       inputs:
-        provider: 'azurerm'
-        command: 'init'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
-        backendServiceArm: 's_connection'
-        backendAzureRmStorageAccountName: 'sanaytoy'
-        backendAzureRmContainerName: 'sanjaycontainer'
-        backendAzureRmKey: 'dev_terraform.tfstate'
+        provider: azurerm
+        command: init
+        workingDirectory: $(TF_WORKING_DIR)
+        backendServiceArm: s_connection
+        backendAzureRmStorageAccountName: sanaytoy
+        backendAzureRmContainerName: sanjaycontainer
+        backendAzureRmKey: dev_terraform.tfstate
 
     - task: TerraformTask@5
       displayName: Terraform Apply
       inputs:
-        provider: 'azurerm'
-        command: 'apply'
-        workingDirectory: '$(System.DefaultWorkingDirectory)/Enviornment/Dev'
-        environmentServiceNameAzureRM: 's_connection'
+        provider: azurerm
+        command: apply
+        workingDirectory: $(TF_WORKING_DIR)
+        environmentServiceNameAzureRM: s_connection
