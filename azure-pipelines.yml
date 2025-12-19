@@ -47,7 +47,7 @@ stages:
         workingDirectory: $(System.DefaultWorkingDirectory)/Enviornment/Dev
         backendServiceArm: s_connection
         backendAzureRmStorageAccountName: sanaytoy
-        backendAzureRmContainerName: sanjaycontainer
+        backendAzureRmContainerName: sanjaycontainer1
         backendAzureRmKey: dev_terraform.tfstate
 
     # - task: TerraformTask@5
@@ -85,7 +85,7 @@ stages:
         workingDirectory: $(System.DefaultWorkingDirectory)/Enviornment/Dev
         backendServiceArm: s_connection
         backendAzureRmStorageAccountName: sanaytoy
-        backendAzureRmContainerName: sanjaycontainer
+        backendAzureRmContainerName: sanjaycontainer1
         backendAzureRmKey: dev_terraform.tfstate
 
     - task: TerraformTask@5
