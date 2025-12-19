@@ -50,13 +50,13 @@ stages:
         backendAzureRmContainerName: sanjaycontainer
         backendAzureRmKey: dev_terraform.tfstate
 
-    - task: TerraformTask@5
-      displayName: Terraform Plan
-      inputs:
-        provider: azurerm
-        command: plan
-        workingDirectory: $(System.DefaultWorkingDirectory)/Enviornment/Dev
-        environmentServiceNameAzureRM: s_connection
+    # - task: TerraformTask@5
+    #   displayName: Terraform Plan
+    #   inputs:
+    #     provider: azurerm
+    #     command: plan
+    #     workingDirectory: $(System.DefaultWorkingDirectory)/Enviornment/Dev
+    #     environmentServiceNameAzureRM: s_connection
 
 # ---------------- APPROVAL ----------------
 - stage: ManualApproval
