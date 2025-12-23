@@ -22,14 +22,14 @@ stages:
         tflint
       displayName: Run TFLint
 
-    - script: |
-        tfsec "$(System.DefaultWorkingDirectory)/Enviornment/Dev" --minimum-severity HIGH --no-color
-      displayName: Run TFSec
-      continueOnError: true
-    # - task: tfsec@1
-    #   inputs:
-    #     version: 'v1.26.0'
-    #     dir: '.'
+    # - script: |
+    #     tfsec "$(System.DefaultWorkingDirectory)/Enviornment/Dev" --minimum-severity HIGH --no-color
+    #   displayName: Run TFSec
+    #   continueOnError: true
+    - task: tfsec@1
+      inputs:
+        version: 'v1.26.0'
+        dir: '.'
 
 # ---------------- PLAN ----------------
 - stage: TerraformPlan
@@ -50,13 +50,13 @@ stages:
         backendAzureRmContainerName: sanjaycontainer1
         backendAzureRmKey: dev_terraform.tfstate
 
-    # - task: TerraformTask@5
-    #   displayName: Terraform Plan
-    #   inputs:
-    #     provider: azurerm
-    #     command: plan
-    #     workingDirectory: $(System.DefaultWorkingDirectory)/Enviornment/Dev
-    #     environmentServiceNameAzureRM: s_connection
+    - task: TerraformTask@5
+      displayName: Terraform Plan
+      inputs:
+        provider: azurerm
+        command: plan
+        workingDirectory: $(System.DefaultWorkingDirectory)/Enviornment/Dev
+        environmentServiceNameAzureRM: s_connection
 
 # ---------------- APPROVAL ----------------
 - stage: ManualApproval
